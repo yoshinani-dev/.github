@@ -28,9 +28,9 @@ yoshinani-dev の全リポジトリに適用する。各リポジトリの AGENT
    - 手動実行（`workflow_dispatch`）だけのもの
 2. **push の前に `pnpm verify` を通す。** フックが自動で実行する。フックを飛ばす `git push --no-verify` は緊急時だけにして、使ったら PR にその理由を書く
 3. **マージの前に `pnpm verify:full` を通す。** 結果を PR の「テスト項目」に書く。レビューする人は、その記載を確認してから承認する
-4. **Dependabot の PR も同じ。** Actions では検査しないので、ブランチをチェックアウトして `pnpm verify:full` を通してからマージする。自動マージは使わない
+4. **依存パッケージの更新もローカルで行う。** 月1回 `pnpm update`（必要に応じて `pnpm outdated` で確認）→ `pnpm verify:full` を通して PR にする
 5. **Chromatic などの外部サービスでの確認は、必要なときにローカルから実行する。**（例: UI を変えたとき `pnpm --filter @repo/ui chromatic`、トークンは `CHROMATIC_PROJECT_TOKEN` で渡す）
-6. **Dependabot の更新頻度は月1回にする。** セキュリティ更新は頻度の設定に関係なく随時届く
+6. **Dependabot のバージョン更新は使わない。** 1 回 10〜60 分 Actions を使い、PR の作り直しのたびに再実行されるため。`.github/dependabot.yml` は置かない。脆弱性アラート（Dependabot alerts）は無料なので有効のままにし、届いたら上の手順で更新する
 7. **AI エージェント（Claude Code・Codex など）にも同じルールを適用する。** エージェントが PR を作るときも `pnpm verify:full` を実行し、結果を PR に書く
 
 ## 新しいリポジトリを作るとき
@@ -38,7 +38,7 @@ yoshinani-dev の全リポジトリに適用する。各リポジトリの AGENT
 - `verify` と `verify:full` を package.json に用意する
 - `.githooks/pre-push` を置き、`"prepare": "git config core.hooksPath .githooks || true"` を package.json に入れる（既存リポジトリの `.githooks/pre-push` をそのままコピーしてよい）
 - AGENTS.md に「CI と検査」の節を入れる（既存リポジトリの節をコピーしてコマンドだけ書き換える）
-- `.github/dependabot.yml` の `interval` は `monthly` にする
+- `.github/dependabot.yml` は置かない（依存の更新は月1回ローカルで行う）
 
 ## 請求の確認
 
