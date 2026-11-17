@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash, randomUUID } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, readdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, readdir, open, unlink } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -50,6 +50,9 @@ export function verifyProperties(page, expected, allowEvidenceAppend = false) {
 export class Notion {
   constructor(token, request = fetch) { if (!token) throw Error('NOTION_API_KEY_required'); this.token = token; this.request = request; }
   async api(path, method = 'GET', body) {
+    const start = Math.max(Date.now(), this.nextRequestAt || 0);
+    this.nextRequestAt = start + 400;
+    if (start > Date.now()) await new Promise(resolve => setTimeout(resolve, start - Date.now()));
     let response;
     try { response = await this.request('https://api.notion.com/v1/' + path, {
       method, headers: { Authorization: 'Bearer ' + this.token, 'Notion-Version': '2025-09-03', 'Content-Type': 'application/json' },
@@ -83,9 +86,11 @@ export async function confirm(api, storage, input) {
   if (typeof input.expected[evidenceField] !== 'string' || !input.expected[evidenceField].includes(input.head)) throw Error('commit_evidence_must_be_saved_in_notion: ' + evidenceField);
   const receiptParent = input.caseId ? id(input.caseId) : related.length === 1 ? related[0] : null;
   if (!receiptParent || !related.includes(receiptParent)) throw Error('explicit_case_selection_required');
-  const evidence = 'Notion保存確認 ' + input.requestId + '\n' + input.repo + '\ncommit ' + input.head + '\n' + input.note + '\nコード成果物の記録。push・本番反映・顧客受入の完了は意味しない。';
-  const matches = (await api.blocks(receiptParent)).filter(b => blockText(b) === evidence);
+  const prefix = 'Notion保存確認 ' + input.requestId + '\n';
+  const evidence = prior?.status === 'confirmed' && prior.evidence ? prior.evidence : prefix + input.repo + '\ncommit ' + input.head + '\npayload ' + fingerprint + '\n' + input.note + '\nコード成果物の記録。push・本番反映・顧客受入の完了は意味しない。';
+  const matches = (await api.blocks(receiptParent)).filter(b => blockText(b).startsWith(prefix));
   if (matches.length > 1) throw Error('duplicate_notion_receipt');
+  if (matches[0] && blockText(matches[0]) !== evidence) throw Error('request_id_payload_changed_in_notion');
   let block = matches[0];
   if (!block && prior?.status === 'intent') throw Error('previous_write_unknown_reconcile_same_request');
   if (!block && prior?.status === 'confirmed') throw Error('notion_receipt_missing');
@@ -104,7 +109,7 @@ export async function confirm(api, storage, input) {
   if (blockText(readback) !== evidence) throw Error('notion_receipt_readback_mismatch');
   const after = await api.api('pages/' + input.pageId);
   verifyTarget(after, input.caseIds); verifyProperties(after, input.expected);
-  const receipt = { ...input, fingerprint, blockId: block.id, evidence, status: 'confirmed', verifiedAt: new Date().toISOString() };
+  const receipt = { ...input, caseId: receiptParent, fingerprint, blockId: block.id, evidence, status: 'confirmed', verifiedAt: new Date().toISOString() };
   await storage.put(input.requestId, receipt); await storage.receipt(input.head, receipt);
   return receipt;
 }
@@ -113,7 +118,19 @@ export async function verify(api, receipt, repo, head) {
   const page = await api.api('pages/' + receipt.pageId);
   verifyTarget(page, receipt.caseIds); verifyProperties(page, receipt.expected, true);
   if (blockText(await api.api('blocks/' + receipt.blockId)) !== receipt.evidence) throw Error('notion_receipt_changed_or_missing');
+  const parent = receipt.caseId || (id(page.parent.data_source_id) === CASE_SOURCE ? receipt.pageId : receipt.caseIds[0]);
+  const matches = (await api.blocks(parent)).filter(b => blockText(b).startsWith('Notion保存確認 ' + receipt.requestId + '\n'));
+  if (matches.length !== 1 || blockText(matches[0]) !== receipt.evidence) throw Error('duplicate_or_changed_notion_receipt');
   return true;
+}
+export async function withOperationLock(directory, requestId, work) {
+  const path = join(directory, requestId + '.lock');
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  let handle;
+  try { handle = await open(path, 'wx', 0o600); }
+  catch (error) { if (error.code === 'EEXIST') throw Error('same_request_in_progress_or_stale_lock_reconcile_before_retry'); throw error; }
+  try { await handle.writeFile(JSON.stringify({ pid: process.pid, requestId })); return await work(); }
+  finally { await handle.close(); await unlink(path); }
 }
 async function file(path) { try { return JSON.parse(await readFile(path, 'utf8')); } catch (e) { if (e.code === 'ENOENT') return null; throw e; } }
 async function save(path, value) {
@@ -147,7 +164,8 @@ async function main() {
       const commit = JSON.parse(execFileSync('gh', ['api', 'repos/' + repo + '/git/commits/' + head], { cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }));
       if (commit.sha !== head) throw Error('github_commit_unverified');
     }
-    const result = await confirm(api, storage, { repo, head, pageId: id(opt('page')), caseIds, caseId: opt('case'), expected: await file(resolve(opt('expected-file'))), note: opt('note'), requestId });
+    const input = { repo, head, pageId: id(opt('page')), caseIds, caseId: opt('case'), expected: await file(resolve(opt('expected-file'))), note: opt('note'), requestId };
+    const result = await withOperationLock(join(directory, 'locks'), requestId, () => confirm(api, storage, input));
     console.log(JSON.stringify({ ok: true, requestId, head, notion: 'https://app.notion.com/p/' + result.pageId }));
   } else if (command === 'verify') {
     const heads = new Set([opt('head') || git(cwd, 'rev-parse', 'HEAD')]);

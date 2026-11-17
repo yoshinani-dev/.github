@@ -37,6 +37,10 @@ test('explicit rejection can be retried with the same request without creating d
   const f = fixture(); f.reject(true); await assert.rejects(confirm(f.api, f.storage, f.input), /403/); f.reject(false);
   await confirm(f.api, f.storage, f.input); assert.equal(f.writes(), 1);
 });
+test('a lost local journal cannot reuse a server-side request ID with different content', async () => {
+  const f=fixture();await confirm(f.api,f.storage,f.input);f.operations.clear();
+  await assert.rejects(confirm(f.api,f.storage,{...f.input,note:'different'}),/payload_changed_in_notion/);assert.equal(f.writes(),1);
+});
 test('changed payload, changed Notion fields, a new commit, or missing evidence blocks completion', async () => {
   const f = fixture(); await confirm(f.api, f.storage, f.input); const receipt = f.receipts.get(f.input.head);
   await assert.rejects(confirm(f.api, f.storage, { ...f.input, note: 'different' }), /payload_changed/);
