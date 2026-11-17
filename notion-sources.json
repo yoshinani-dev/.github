@@ -1,0 +1,144 @@
+{
+  "case_data_source_id": "295f5577-f583-8081-99e4-000bddd068d2",
+  "task_data_source_id": "19af5577-f583-80e1-98a5-000bf2053b0e",
+  "repositories": {
+    "arukas-line/1seki3cho-platform": {
+      "case_urls": [
+        "https://app.notion.com/3d9f5577f58380f18ea1e0266f8e3b10"
+      ]
+    },
+    "arukas-line/1seki3cho-stripe-tipping": {
+      "case_urls": [
+        "https://app.notion.com/3d9f5577f58380f19d8bd64548cd361f"
+      ]
+    },
+    "arukas-line/kuroshio": {
+      "case_urls": [
+        "https://app.notion.com/3d9f5577f5838011af33c08b60ade93d"
+      ]
+    },
+    "arukas-line/tjkaikei-ai-desk": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f58381158697e222888a11e5"
+      ]
+    },
+    "cloud-illusion-inc/line-ringi-system": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f58381ab9bfbfc6168ef18fd"
+      ]
+    },
+    "arukas-line/rikairo": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f5838135ab13eda0c05fbe13"
+      ]
+    },
+    "cloud-illusion-inc/questore": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f583811c8abedbcc528d0d9b"
+      ]
+    },
+    "cloud-illusion-inc/questory": {
+      "case_urls": [
+        "https://app.notion.com/2eff5577f5838080a145ea05ef73773c"
+      ]
+    },
+    "line-ec-lea/drm-agent": {
+      "case_urls": [
+        "https://app.notion.com/2fbf5577f583803ca595ea0c6c6fb031"
+      ]
+    },
+    "line-ec-lea/influ-ma-tools": {
+      "case_urls": [
+        "https://app.notion.com/2a1f5577f5838061a090fc3b048afac1"
+      ]
+    },
+    "qantasmz/signyapp": {
+      "case_urls": [
+        "https://app.notion.com/3e1f5577f58380a99ccfd40c007684a8"
+      ]
+    },
+    "yoshinani-dev/eyes-arrange": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f58381d89581efe96d3a708c"
+      ]
+    },
+    "yoshinani-dev/gem-queen-shopify": {
+      "case_urls": [
+        "https://app.notion.com/2b8f5577f58380ae813feeb9569b60ff",
+        "https://app.notion.com/3dbf5577f583808287d2e89ab9307322",
+        "https://app.notion.com/40ef5577f58381c5bfd2cc42e5c38b37"
+      ],
+      "legacy_project_ids": [
+        "PVT_kwDOBJM9YM4BPZ3v"
+      ]
+    },
+    "yoshinani-dev/gem-queen-app": {
+      "case_urls": [
+        "https://app.notion.com/2e1f5577f5838028a664f51dabf7c2ed"
+      ],
+      "legacy_project_ids": [
+        "PVT_kwDOBJM9YM4BPYvA"
+      ]
+    },
+    "yoshinani-dev/gem-queen-ai-chat": {
+      "case_urls": [
+        "https://app.notion.com/3dbf5577f5838006b17fc75195946d93"
+      ]
+    },
+    "yoshinani-dev/jarvis": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f5838146a070dfcc7df71f7d"
+      ]
+    },
+    "yoshinani-dev/omd-cp": {
+      "case_urls": [
+        "https://app.notion.com/415f5577f58381dbb56fc481369cef52"
+      ]
+    },
+    "yoshinani-dev/packn-to": {
+      "case_urls": [
+        "https://app.notion.com/2fef5577f58380ad9d01cad31bdce086",
+        "https://app.notion.com/3dbf5577f58380bea60ee047287402b7",
+        "https://app.notion.com/3e3f5577f58381e5a3ddea97182b045e"
+      ]
+    },
+    "yoshinani-dev/queen-chan": {
+      "case_urls": [
+        "https://app.notion.com/3dbf5577f58380f1a3efe15e55e362b4"
+      ]
+    },
+    "yoshinani-dev/y2jewelry-cp": {
+      "case_urls": [
+        "https://app.notion.com/3dbf5577f58380c6b3e2e550f1a6dda4"
+      ]
+    },
+    "yoshinani-dev/yoshinani-cp": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f58381c6942bda8e024226bd"
+      ]
+    },
+    "yoshinani-dev/yuueye-calculate-payroll": {
+      "case_urls": [
+        "https://app.notion.com/412f5577f583819dae43d6c250501723"
+      ],
+      "legacy_project_ids": [
+        "PVT_kwDOBJM9YM4BTgRF"
+      ]
+    },
+    "yoshinani-dev/omd-hr-miniapp": {
+      "case_urls": [
+        "https://app.notion.com/415f5577f58381cea1d0dbe03be77bef"
+      ]
+    },
+    "line-ec-lea/chokupass": {
+      "case_urls": [
+        "https://app.notion.com/3dbf5577f58380899f33c1497bec34ce"
+      ]
+    },
+    "yoshinani-dev/.github": {
+      "case_urls": [
+        "https://app.notion.com/40ef5577f5838146a070dfcc7df71f7d"
+      ]
+    }
+  }
+}

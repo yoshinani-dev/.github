@@ -21,3 +21,41 @@ GitHubにはコード、設計・仕様、検証方法、PR差分・レビュー
 自動連携を「有効」「漏れなし」と扱うのは、対象範囲・ページ送り・重複/順序逆転・欠落後の再照合・失敗検知・再試行・権限喪失を実接続で確認した場合だけ。方針文書、URL設置、チェックボックスだけを自動同期の稼働証拠にしない。
 
 Claude Code・Codex・人の手作業に同じ完了条件を適用する。Notionを直接使う場合も、Jarvis経由の場合も、正本と照合を変えない。
+
+## 保存確認を通すローカルゲート
+
+IT案件と会社タスクは既存Notionを更新し、GitHubのIssue・Projects・進捗文書を更新経路にしない。
+旧ITタスクと旧Y2工程タスクの行は原本として保全し、各行の「更新先（会社タスク）」だけを現行の更新先とする。
+案件の「会社タスク」から同じ会社タスクを参照する。他事業・個人タスクはこの移管の対象外。
+
+[notion-sources.json](notion-sources.json) はリポジトリとNotion URLの対応だけを保持する。進捗・期限・担当を置かない。
+[scripts/notion-flow.mjs](scripts/notion-flow.mjs) はNotionの対象データソース・会社区分・案件relationを検証する。
+作業の事実とコミットSHAを案件の証拠メモ（タスクでは説明）へ保存してから、保存した全変更項目の期待値JSONをGit管理外に用意する。
+値の型は文字列・数値・日付`{start,end}`・ソート済みの担当ID/relation ID配列とし、APIのプロパティ定義を複製しない。
+
+```sh
+# ランタイムはこのリポジトリの scripts/ と notion-sources.json を
+# ~/Development/yoshinani/.notion-flow/ に同じ構造で配置する。
+FLOW="$HOME/Development/yoshinani/.notion-flow"
+node "$FLOW/scripts/install-hooks.mjs" "$PWD"
+
+# 先に既存のJarvis/Notion操作で事実・根拠・コミットSHAを保存する。
+# EXPECTED_JSON は今回保存した全変更項目の期待値。Git管理外に置く。
+node --env-file="$HOME/Development/yoshinani/jarvis/web/.env" \
+  "$FLOW/scripts/notion-flow.mjs" confirm \
+  --page <NotionページID> --expected-file <EXPECTED_JSON> \
+  --request-id <同じ保存要求のUUID> --note '<確認した事実と範囲>'
+
+# push・PR作成・マージ・完了報告の前に実行する。
+node --env-file="$HOME/Development/yoshinani/jarvis/web/.env" \
+  "$FLOW/scripts/notion-flow.mjs" verify
+```
+
+- 複数案件にまたがるタスクには`--case <対象案件ID>`を明示する。REST/APIで作ったコミットはローカルへfetchして`--head <SHA>`を指定し、同じ保存確認を通す。
+- 既存のpre-push検査を保持して先に実行し、その後にNotionの確認ゲートを実行する。インストール処理はGitメタデータにだけ書き、既存フックを削除しない。
+- APIの成功応答だけでは証明を作らない。保存結果と証拠ブロックを再取得し、対象ID・全期待値・コミットの一致後だけ確認済みにする。証明は`.git/notion-flow/`に置き、Gitに入れない。
+- Notion不通、未紐づけ、内容不一致、未確定要求、コミット変更時は非ゼロで停止する。別の進捗表へ迂回しない。
+- GitHubのopen Issueを全ページ読み、タスク管理が残っていれば停止する。旧Projectsのある対象はクローズ・有効ワークフロー0・正しいNotion参照も再確認し、管理表が再開した状態を成功にしない。
+- 結果不明の追記は同じ要求IDで原本の証拠を照合する。一致する証拠が見つからなければ自動再送しない。内容を変えた同一IDも拒否する。
+- package managerが`core.hooksPath`を再設定した場合は、作業開始時にインストールを再実行して新しい既存フックを保持する。
+- このゲートは保存確認の技術的制御であり、実施内容の真偽・先方合意・本番受入を自動判定しない。未確認はNotionの確認待ちへ残す。
