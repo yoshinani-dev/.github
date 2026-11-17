@@ -14,6 +14,7 @@ test('install keeps the original hook and its stdin, and safely follows a later 
     // A node hook receives the exact input and exits before the Notion network gate.
     const program='#!/usr/bin/env node\n(async()=>{let input="";for await(const c of process.stdin)input+=c;require("node:fs").writeFileSync('+JSON.stringify(capture)+',JSON.stringify({input,args:process.argv.slice(2)}));process.exit(42);})()';
     await writeFile(path,program,{mode:0o755});git('config','core.hooksPath','prior hooks');
+    const commitHook=join(root,'prior hooks/pre-commit');await writeFile(commitHook,program,{mode:0o755});
     const install=resolve('scripts/install-hooks.mjs');
     execFileSync(process.execPath,[install,root],{cwd:root});
     const hooks=git('config','--get','core.hooksPath');
@@ -22,9 +23,12 @@ test('install keeps the original hook and its stdin, and safely follows a later 
     const input='refs/heads/task '+ 'a'.repeat(40)+' refs/heads/task '+ 'b'.repeat(40)+'\n';
     const run=spawnSync(join(hooks,'pre-push'),['origin','git@example.test:service'],{cwd:root,input,encoding:'utf8'});
     assert.equal(run.status,42);assert.deepEqual(JSON.parse(await readFile(capture,'utf8')),{input,args:['origin','git@example.test:service']});
+    const commitRun=spawnSync(join(hooks,'pre-commit'),['unchanged-argument'],{cwd:root,input,encoding:'utf8'});
+    assert.equal(commitRun.status,42);assert.deepEqual(JSON.parse(await readFile(capture,'utf8')),{input,args:['unchanged-argument']});assert.equal(await readFile(commitHook,'utf8'),program);
     git('config','core.hooksPath','.new-hooks');execFileSync(process.execPath,[install,root],{cwd:root});
     const meta=JSON.parse(await readFile(join(root,'.git/notion-flow/installation.json'),'utf8'));
     assert.equal(meta.previous,'.new-hooks');assert.equal(meta.legacy,'.new-hooks/pre-push');assert.equal(await readFile(path,'utf8'),program);
+    assert.equal(spawnSync(join(hooks,'pre-commit'),[],{cwd:root,encoding:'utf8'}).status,0);
   }finally{await rm(root,{recursive:true,force:true});}
 });
 test('simultaneous retries cannot append twice and a completed request releases its lock', async () => {
