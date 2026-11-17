@@ -142,7 +142,11 @@ async function main() {
     if (!opt('expected-file') || !opt('page') || !opt('note')) throw Error('page_expected_file_and_fact_note_required');
     const head = opt('head') || git(cwd, 'rev-parse', 'HEAD');
     if (!/^[a-f0-9]{40,64}$/i.test(head)) throw Error('invalid_commit');
-    git(cwd, 'cat-file', '-e', head + '^{commit}');
+    try { git(cwd, 'cat-file', '-e', head + '^{commit}'); }
+    catch {
+      const commit = JSON.parse(execFileSync('gh', ['api', 'repos/' + repo + '/git/commits/' + head], { cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }));
+      if (commit.sha !== head) throw Error('github_commit_unverified');
+    }
     const result = await confirm(api, storage, { repo, head, pageId: id(opt('page')), caseIds, caseId: opt('case'), expected: await file(resolve(opt('expected-file'))), note: opt('note'), requestId });
     console.log(JSON.stringify({ ok: true, requestId, head, notion: 'https://app.notion.com/p/' + result.pageId }));
   } else if (command === 'verify') {
