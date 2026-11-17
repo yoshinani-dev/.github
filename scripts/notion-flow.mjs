@@ -11,6 +11,11 @@ export const id = value => String(value).replaceAll('-', '').toLowerCase();
 export const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const canonical = value => value.replace(/^git@github.com:/, '').replace(/^https:\/\/github.com\//, '').replace(/\.git$/, '').toLowerCase();
 const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+export function verifyGitHubManagement(pages) {
+  if (!Array.isArray(pages) || pages.some(page => !Array.isArray(page))) throw Error('github_inventory_unverified');
+  const issues = pages.flat().filter(item => !item.pull_request);
+  if (issues.length) throw Error('github_task_management_still_open: ' + issues.map(item => item.number).join(','));
+}
 const text = parts => (parts || []).map(p => p.plain_text ?? p.text?.content ?? '').join('');
 export function property(p) {
   if (!p) return null;
@@ -27,6 +32,7 @@ export function verifyTarget(page, caseIds) {
   if (page.archived || page.in_trash) throw Error('archived_target');
   if (source === CASE_SOURCE && allowed.includes(id(page.id))) return [id(page.id)];
   if (source === TASK_SOURCE && property(page.properties['区分']) === '会社') {
+    if (page.properties['IT事業']?.has_more) throw Error('notion_relation_pagination_unverified');
     const related = property(page.properties['IT事業']);
     if (related?.length && related.some(v => allowed.includes(v))) return related.filter(v => allowed.includes(v));
   }
@@ -56,6 +62,7 @@ export class Notion {
     const rows = []; const seen = new Set(); let cursor;
     do {
       const result = await this.api('blocks/' + page + '/children?page_size=100' + (cursor ? '&start_cursor=' + encodeURIComponent(cursor) : ''));
+      if (!Array.isArray(result.results) || typeof result.has_more !== 'boolean' || (result.has_more && !result.next_cursor)) throw Error('notion_pagination_unverified');
       rows.push(...result.results); cursor = result.has_more ? result.next_cursor : null;
       if (cursor && seen.has(cursor)) throw Error('notion_pagination_loop');
       seen.add(cursor);
@@ -147,6 +154,14 @@ async function main() {
     for (const head of heads) await verify(api, await file(join(directory, 'receipts', head + '.json')), repo, head);
     const entries = await readdir(join(directory, 'operations')).catch(e => { if (e.code === 'ENOENT') return []; throw e; });
     for (const entry of entries) if (entry.endsWith('.json') && (await storage.get(entry.slice(0, -5)))?.status !== 'confirmed') throw Error('unresolved_notion_operation: ' + entry);
+    const github = execFileSync('gh', ['api', '--paginate', '--slurp', 'repos/' + repo + '/issues?state=open&per_page=100'], { cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] });
+    verifyGitHubManagement(JSON.parse(github));
+    if (target.legacy_project_ids?.length) {
+      const query = 'query{' + target.legacy_project_ids.map((project, i) => 'p' + i + ':node(id:' + JSON.stringify(project) + '){...on ProjectV2{closed readme workflows(first:100){pageInfo{hasNextPage} nodes{enabled}}}}').join(' ') + '}';
+      const response = JSON.parse(execFileSync('gh', ['api', 'graphql', '-f', 'query=' + query], { cwd, encoding: 'utf8', stdio: ['ignore','pipe','pipe'] }));
+      if (response.errors || !response.data || Object.keys(response.data).length !== target.legacy_project_ids.length) throw Error('github_projects_unverified');
+      for (const p of Object.values(response.data)) if (!p?.closed || p.workflows.pageInfo.hasNextPage || p.workflows.nodes.some(w => w.enabled) || !target.case_urls.some(url => (p.readme || '').includes(url.match(/[a-f0-9]{32}/i)?.[0]))) throw Error('github_project_management_reenabled_or_unmapped');
+    }
     console.log('Notionの保存・再取得照合を確認しました。');
   } else throw Error('usage: confirm --page ID --expected-file JSON --note FACT --request-id UUID | verify [--pre-push]');
 }

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { confirm, verify, Notion, CASE_SOURCE, TASK_SOURCE } from './notion-flow.mjs';
+import { confirm, verify, verifyGitHubManagement, Notion, CASE_SOURCE, TASK_SOURCE } from './notion-flow.mjs';
 
 function fixture() {
   const pageId = '1'.repeat(32), head = 'a'.repeat(40), operations = new Map(), receipts = new Map(), blocks = [];
@@ -53,4 +53,21 @@ test('legacy sources, other cases, personal tasks, and archived pages are reject
 test('Notion unavailability never confirms or retries a write automatically', async () => {
   let calls = 0; const api = new Notion('private-test-value', async () => { calls++; throw Error('offline'); });
   await assert.rejects(api.api('pages/example', 'PATCH', {}), /unknown/); assert.equal(calls, 1);
+});
+test('GitHub task management cannot silently reappear and all issue pages are considered', () => {
+  assert.doesNotThrow(() => verifyGitHubManagement([[{ number: 1, pull_request: {} }], []]));
+  assert.throws(() => verifyGitHubManagement([[{ number: 1, pull_request: {} }], [{ number: 99 }]]), /still_open: 99/);
+  assert.throws(() => verifyGitHubManagement(null), /unverified/);
+});
+test('Notion receipt lookup consumes every page and fails on a missing or repeated cursor', async () => {
+  const requests = [];
+  const api = new Notion('test', async url => {
+    requests.push(url);
+    return new Response(JSON.stringify(url.includes('start_cursor=next') ? { results: [{ id: 'last' }], has_more: false, next_cursor: null } : { results: [{ id: 'first' }], has_more: true, next_cursor: 'next' }));
+  });
+  assert.deepEqual((await api.blocks('page')).map(b => b.id), ['first','last']); assert.equal(requests.length, 2);
+  const missing = new Notion('test', async () => new Response(JSON.stringify({ results: [], has_more: true, next_cursor: null })));
+  await assert.rejects(missing.blocks('page'), /pagination_unverified/);
+  const cycle = new Notion('test', async () => new Response(JSON.stringify({ results: [], has_more: true, next_cursor: 'same' })));
+  await assert.rejects(cycle.blocks('page'), /pagination_loop/);
 });
